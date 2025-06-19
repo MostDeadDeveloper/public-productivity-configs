@@ -1,0 +1,49 @@
+from pptx import Presentation
+from copy import deepcopy
+
+def clone_slide(source_prs, dest_prs, slide_index):
+    """
+    Clone a slide from source_prs (by index) into dest_prs, 
+    retaining layouts, shapes, images, and relationships.
+    """
+    source_slide = source_prs.slides[slide_index]
+
+    # Try to find a matching layout by name in the destination presentation
+    layout = None
+    src_layout_name = source_slide.slide_layout.name
+    for l in dest_prs.slide_layouts:
+        if l.name == src_layout_name:
+            layout = l
+            break
+    # Fallback to a blank layout if no match is found
+    if layout is None:
+        layout = dest_prs.slide_layouts[6]
+
+    # Add a new slide with the chosen layout
+    new_slide = dest_prs.slides.add_slide(layout)
+
+    # Copy all shapes (including pictures, charts, text boxes)
+    for shape in source_slide.shapes:
+        new_el = deepcopy(shape.element)
+        new_slide.shapes._spTree.insert_element_before(new_el, 'p:extLst')
+
+    # Copy slide-level relationships (e.g., images, charts)
+    for rel in source_slide.part.rels:
+        if "notesSlide" not in rel.reltype:  # skip notes relationships
+            new_slide.part.rels.add_relationship(rel.reltype, rel._target, rel.rId)
+
+    return new_slide
+
+# Example usage:
+source_pptx = "source.pptx"
+destination_pptx = "destination.pptx"
+output_pptx = "merged.pptx"
+
+src_prs = Presentation(source_pptx)
+dst_prs = Presentation(destination_pptx)
+
+for idx in range(len(src_prs.slides)):
+    clone_slide(src_prs, dst_prs, idx)
+
+dst_prs.save(output_pptx)
+print(f"Successfully merged slides into '{output_pptx}'")
